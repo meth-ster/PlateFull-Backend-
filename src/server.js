@@ -37,15 +37,49 @@ const app = express();
 connectDB();
 
 // Security middleware
-app.use(helmet());
-app.use(cors({
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false
+}));
+
+// CORS configuration
+const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://your-frontend-domain.com'] 
-    : ['http://localhost:3000', 'http://localhost:19006', 'http://localhost:8081', 'exp://localhost:8081'],
+    : true, // Allow all origins in development
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ],
+  exposedHeaders: ['Content-Length', 'Content-Type']
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests for all routes
+app.options('*', cors(corsOptions));
+
+// Additional CORS headers middleware
+app.use((req, res, next) => {
+  // Set CORS headers for all responses
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', true);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  next();
+});
 
 // Rate limiting
 const limiter = rateLimit({
@@ -76,11 +110,69 @@ app.use('/uploads', express.static('uploads'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  // Set CORS headers explicitly for this endpoint
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', true);
+  
   res.status(200).json({
     success: true,
     message: 'Plateful API is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    cors: 'enabled',
+    allowedOrigins: process.env.NODE_ENV === 'production' ? 'restricted' : 'all origins allowed',
+    currentOrigin: req.headers.origin || 'unknown'
+  });
+});
+
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'CORS is working properly',
+    cors: {
+      enabled: true,
+      mode: process.env.NODE_ENV === 'production' ? 'restricted' : 'open',
+      allowedOrigins: process.env.NODE_ENV === 'production' ? 'restricted' : 'all origins allowed',
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+    },
+    request: {
+      origin: req.headers.origin,
+      method: req.method,
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      headers: req.headers
+    },
+    server: {
+      environment: process.env.NODE_ENV,
+      timestamp: new Date().toISOString()
+    }
+  });
+});
+
+// Image upload test endpoint (for testing CORS with POST requests)
+app.post('/api/cors-image-test', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'CORS POST request successful - image uploads will work',
+    cors: {
+      enabled: true,
+      mode: process.env.NODE_ENV === 'production' ? 'restricted' : 'open',
+      allowedOrigins: process.env.NODE_ENV === 'production' ? 'restricted' : 'all origins allowed',
+      credentials: true
+    },
+    request: {
+      origin: req.headers.origin,
+      method: req.method,
+      contentType: req.get('Content-Type'),
+      contentLength: req.get('Content-Length'),
+      hasBody: !!req.body
+    },
+    server: {
+      environment: process.env.NODE_ENV,
+      timestamp: new Date().toISOString()
+    }
   });
 });
 

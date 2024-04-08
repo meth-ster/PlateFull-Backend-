@@ -4,7 +4,7 @@
   "description": "Backend API for Plateful - Children's Nutrition App",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node --watch src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest",
     "test:watch": "jest --watch",
