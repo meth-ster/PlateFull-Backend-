@@ -17,6 +17,12 @@ const childSchema = new mongoose.Schema({
     enum: ['male', 'female', 'other'],
     required: true
   },
+  height: {
+    type : String
+  },
+  weight : {
+    type: String
+  },
   avatar: {
     type: String,
     default: ''
